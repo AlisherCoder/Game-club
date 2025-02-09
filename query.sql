@@ -22,7 +22,7 @@ CREATE TABLE orders(
 
 CREATE TABLE product(
     id INT AUTO_INCREMENT PRIMARY KEY,
-    compNumber INT NOT NULL,
+    compNumber INT NOT NULL UNIQUE,
     price FLOAT NOT NULL,
     compType VARCHAR(255) NOT NULL,
     status BOOLEAN NOT NULL,
@@ -40,12 +40,13 @@ CREATE TABLE orderitems(
     summa FLOAT NOT NULL,
     roomId INT NULL,
     Foreign Key (orderId) REFERENCES orders(id),
-    Foreign Key (productId) REFERENCES product(id)
+    Foreign Key (productId) REFERENCES product(id),
+    Foreign Key (roomId) REFERENCES room(id)
 );
 
 CREATE TABLE room(
     id INT AUTO_INCREMENT PRIMARY KEY,
-    roomNumber INT NOT NULL,
+    roomNumber INT NOT NULL UNIQUE,
     countComps INT NOT NULL,
     price FLOAT NOT NULL,
     status BOOLEAN NOT NULL,
@@ -54,3 +55,5 @@ CREATE TABLE room(
 );
 
 SELECT * FROM users;
+
+DROP Table room;

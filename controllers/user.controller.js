@@ -19,12 +19,12 @@ export async function getOne(req, res) {
    try {
       let { id } = req.params;
 
-      let [data] = await db.execute("select * from users where id = ?", [id]);
-      if (!data.length) {
+      let [found] = await db.execute("select * from users where id = ?", [id]);
+      if (!found.length) {
          return res.status(404).json({ message: "Not found data" });
       }
 
-      res.status(200).json({ data });
+      res.status(200).json({ data: found[0] });
    } catch (error) {
       res.status(500).json({ message: error.message });
    }
@@ -69,7 +69,7 @@ export async function update(req, res) {
 
       let [found] = await db.execute("select * from users where id = ?", [id]);
 
-      res.status(200).json({ data: found });
+      res.status(200).json({ data: found[0] });
    } catch (error) {
       res.status(500).json({ message: error.message });
    }
