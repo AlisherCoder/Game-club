@@ -1,19 +1,35 @@
 import {
    create,
    getAll,
+   getBySearch,
    getOne,
    remove,
    update,
 } from "../controllers/room.controller.js";
 import { Router } from "express";
 import upload from "../middlewares/multer.js";
+import verifyToken from "../middlewares/verifyToken.js";
+import rolePolice from "../middlewares/rolePolice.js";
 
 const roomRoute = Router();
 
+roomRoute.get("/search", getBySearch);
 roomRoute.get("/", getAll);
-roomRoute.post("/", upload.single("image"), create);
 roomRoute.get("/:id", getOne);
-roomRoute.delete("/:id", remove);
-roomRoute.patch("/:id", upload.single("image"), update);
+roomRoute.post(
+   "/",
+   verifyToken,
+   rolePolice(["admin"]),
+   upload.single("image"),
+   create
+);
+roomRoute.delete("/:id", verifyToken, rolePolice(["admin"]), remove);
+roomRoute.patch(
+   "/:id",
+   verifyToken,
+   rolePolice(["admin"]),
+   upload.single("image"),
+   update
+);
 
 export default roomRoute;

@@ -1,4 +1,4 @@
-import db from "../config/db.js";
+import User from "../models/user.model.js";
 import jwt from "jsonwebtoken";
 import bcrypt from "bcrypt";
 import { config } from "dotenv";
@@ -9,30 +9,28 @@ let key = process.env.JWTSECRETKEY;
 export async function login(req, res) {
    try {
       let { password, phone } = req.body;
-      let [user] = await db.execute("select * from users where phone = ?", [
-         phone,
-      ]);
+      let user = await User.findOne({ where: { phone } });
 
-      if (!user.length) {
+      if (!user) {
          return res.status(404).json({ message: "Not found user" });
       }
 
-      if (!user[0].isActive) {
+      if (!user.isActive) {
          return res.status(401).json({
             message: "Your account is not active, please activate it",
          });
       }
 
-      let isValid = bcrypt.compareSync(password, user[0].password);
+      let isValid = bcrypt.compareSync(password, user.password);
       if (!isValid) {
          return res.status(401).json({ message: "Password or phone wrong" });
       }
 
       let token = jwt.sign(
          {
-            phone: user[0].phone,
-            isActive: user[0].isActive,
-            role: user[0].role,
+            id: user.id,
+            isActive: user.isActive,
+            role: user.role,
          },
          key
       );

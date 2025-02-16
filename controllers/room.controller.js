@@ -1,14 +1,15 @@
-import db from "../config/db.js";
+import Room from "../models/room.model.js";
+import path from "path";
 import fs from "fs";
 import {
    RoomPatchValid,
    RoomPostValid,
 } from "../validations/room.validation.js";
-import path from "path";
+import { roomSearchValid } from "../validations/search.valid.js";
 
 export async function getAll(req, res) {
    try {
-      let [data] = await db.query("select * from room");
+      let data = await Room.findAll();
 
       if (!data.length) {
          return res.status(200).json({ message: "No rooms yet" });
@@ -30,18 +31,14 @@ export async function create(req, res) {
          return res.status(422).json({ message: error.details[0].message });
       }
 
-      let { roomNumber, price, status, countComps, description } = value;
-      let [created] = await db.execute(
-         `insert into room 
-         (roomNumber, price, status, countComps, description, image) values(?, ?, ?, ?, ?, ?)`,
-         [roomNumber, price, status, countComps, description, req.file.filename]
-      );
+      if (!req.file) {
+         return res.status(422).json({ message: "The room photo must be" });
+      }
 
-      let [found] = await db.execute("select * from room where id = ?", [
-         created.insertId,
-      ]);
+      value.image = req.file.filename;
+      let created = await Room.create(value);
 
-      res.status(201).json({ data: found[0] });
+      res.status(201).json({ data: created });
    } catch (error) {
       try {
          fs.unlinkSync(req.file.path);
@@ -53,13 +50,13 @@ export async function create(req, res) {
 export async function getOne(req, res) {
    try {
       let { id } = req.params;
+      let found = await Room.findByPk(id);
 
-      let [found] = await db.execute("select * from room where id = ?", [id]);
-      if (!found.length) {
+      if (!found) {
          return res.status(404).json({ message: "Not found data" });
       }
 
-      res.status(200).json({ data: found[0] });
+      res.status(200).json({ data: found });
    } catch (error) {
       res.status(500).json({ message: error.message });
    }
@@ -68,15 +65,15 @@ export async function getOne(req, res) {
 export async function remove(req, res) {
    try {
       let { id } = req.params;
+      let found = await Room.findByPk(id);
 
-      let [found] = await db.execute("select * from room where id = ?", [id]);
-      if (!found.length) {
+      if (!found) {
          return res.status(404).json({ message: "Not found data" });
       }
 
-      await db.execute("delete from room where id = ?", [id]);
+      await found.destroy();
       try {
-         let pathfile = path.join("uploads", found[0].image);
+         let pathfile = path.join("uploads", found.image);
          fs.unlinkSync(pathfile);
       } catch (error) {}
 
@@ -97,39 +94,51 @@ export async function update(req, res) {
          return res.status(422).json({ message: error.details[0].message });
       }
 
-      let [data] = await db.execute("select * from room where id = ?", [id]);
-      if (!data.length) {
+      let found = await Room.findByPk(id);
+      if (!found) {
          return res.status(404).json({ message: "Not found data" });
       }
 
-      let keys = Object.keys(value);
-      let values = Object.values(value);
-
       if (req.file) {
-         keys.push("image");
-         values.push(req.file.filename);
-      }
-      let queryKey = keys.map((key) => (key += " = ?"));
-
-      let [updated] = await db.execute(
-         `update room set ${queryKey.join(", ")} where id = ?`,
-         [...values, id]
-      );
-
-      if (req.file && updated.affectedRows) {
+         value.image = req.file.filename;
          try {
-            let pathfile = path.join("uploads", data[0].image);
+            let pathfile = path.join("uploads", found.image);
             fs.unlinkSync(pathfile);
          } catch (error) {}
       }
 
-      let [found] = await db.execute("select * from room where id = ?", [id]);
+      await found.update(value);
 
-      res.status(200).json({ data: found[0] });
+      res.status(200).json({ data: found });
    } catch (error) {
       try {
          fs.unlinkSync(req.file.path);
       } catch (error) {}
+      res.status(500).json({ message: error.message });
+   }
+}
+
+export async function getBySearch(req, res) {
+   try {
+      let query = {};
+      for (let [key, val] of Object.entries(req.query)) {
+         if (val) {
+            query[key] = val;
+         }
+      }
+
+      let { error, value } = roomSearchValid.validate(query);
+      if (error) {
+         return res.status(422).json({ message: error.details[0].message });
+      }
+
+      let rooms = await Room.findAll({ where: value });
+      if (!rooms.length) {
+         return res.status(404).json({ message: "Not found data" });
+      }
+
+      res.status(200).json({ data: rooms });
+   } catch (error) {
       res.status(500).json({ message: error.message });
    }
 }

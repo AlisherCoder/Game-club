@@ -1,31 +1,10 @@
+import User from "../models/user.model.js";
+import sendOTP from "../middlewares/sendOTP.js";
 import bcrypt from "bcrypt";
-import db from "../config/db.js";
 import { totp } from "otplib";
-import { config } from "dotenv";
-import { PhoneValid } from "../validations/user.validation.js";
-config();
+import { PhoneValid, UserNewPassword } from "../validations/user.validation.js";
 
-totp.options = { step: 300, digits: 5 };
-let otpSecret = process.env.OTPSECRET;
-
-async function sendOTP(phone) {
-   try {
-      let key = otpSecret + phone;
-      let otp = totp.generate(key);
-
-      //   await api.post("/message/sms/send", {
-      //      mobile_phone: phone,
-      //      message: "Bu Eskiz dan test",
-      //      from: 4546,
-      //   });
-
-      return otp;
-   } catch (error) {
-      console.log(error.message);
-   }
-}
-
-export async function getOtpForReset(req, res) {
+export async function sendOtpAgain(req, res) {
    try {
       let { phone } = req.params;
 
@@ -33,11 +12,9 @@ export async function getOtpForReset(req, res) {
          return res.status(422).json({ message: "Phone format is incorrect" });
       }
 
-      let [user] = await db.execute("select * from users where phone = ?", [
-         phone,
-      ]);
+      let user = await User.findOne({ where: { phone } });
 
-      if (!user.length) {
+      if (!user) {
          return res.status(404).json({ message: "Not found user" });
       }
 
@@ -51,6 +28,13 @@ export async function getOtpForReset(req, res) {
 
 export async function resetPassword(req, res) {
    try {
+      let otpSecret = process.env.OTPSECRET;
+
+      let { error } = UserNewPassword.validate(req.body);
+      if (error) {
+         return res.status(422).json({ message: error.details[0].message });
+      }
+
       let { phone, otp } = req.params;
       let { newPassword } = req.body;
 
@@ -62,10 +46,7 @@ export async function resetPassword(req, res) {
       }
 
       let hashpass = bcrypt.hashSync(newPassword, 10);
-      await db.execute(
-         "update users set password = ? where phone = ?",
-         [hashpass, phone]
-      );
+      await User.update({ password: hashpass }, { where: { phone } });
 
       res.status(200).json({ message: "Password reset successfully" });
    } catch (error) {
